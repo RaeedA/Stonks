@@ -3,8 +3,13 @@ package main.Stonks;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import org.ehcache.Cache;
+import org.ehcache.CacheManager;
+import org.ehcache.config.builders.CacheManagerBuilder;
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
+@SuppressWarnings("unchecked")
 public class Database
 {
     MySQLAccess access;
@@ -114,9 +119,54 @@ public class Database
         return obj;
     }
     
+    public JSONObject accstatus(String username) throws SQLException
+    {
+        /*Out: { "stockinfo" : [ "SYMBOL" , QUANTITY , COSTBASIS , REALIZEDGAIN , UNREALIZEDGAIN , PRICE ] , "balance" : BALANCE, "message" : MESSAGE , "success", SUCCESS}*/
+        ResultSet set;
+        JSONObject obj = new JSONObject();
+        
+        //Get ID and balance
+        set = access.execute( "select id, balance from userinfo where username = '" + username + "'" );
+        if (set == null)
+        {
+            obj.put("success", false);
+            obj.put( "message", "user doesn't exist" );
+            return obj;
+        }
+        set.next();
+        int id = set.getInt( 1 );
+        double balance = set.getDouble( 2 );
+        
+        
+        JSONArray arr = new JSONArray();
+        
+        set = access.execute( "select symbol, volume, costbasis, realized from stockinfo where userid = " + id );
+        if (set != null)
+        {
+            while(set.next())
+            {
+                JSONObject o = new JSONObject();
+                o.put( "symbol", set.getString( 1 ) );
+                o.put( "volume", set.getInt( 2 ) );
+                o.put( "costbasis", set.getDouble( 3 ) );
+                o.put( "realizedgain", set.getDouble( 4 ) );
+                int price = 10;
+                o.put( "price", price );
+                arr.add( o );
+            }
+        }
+        
+        obj.put( "stockinfo", arr );
+        obj.put( "balance", balance );
+        obj.put( "success", true );
+        obj.put( "message", "task complete");
+            
+        return obj;
+    }
+    
     public JSONObject getStockPrice()
     {
-        /* 
+        /*
          * StockStatus (In: [Stock symbol, quantity], Out: [Stock symbol, price])
          * JSON: In: { "info" : [ "SYMBOL" , 10 ] }, Out: { "info" : [ “SYMBOL" , 0.01 ] }
          */
