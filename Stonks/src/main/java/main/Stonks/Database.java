@@ -2,10 +2,8 @@ package main.Stonks;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.HashMap;
 
-import org.ehcache.Cache;
-import org.ehcache.CacheManager;
-import org.ehcache.config.builders.CacheManagerBuilder;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
@@ -13,10 +11,12 @@ import org.json.simple.JSONObject;
 public class Database
 {
     MySQLAccess access;
+    StockFinder finder;
     
-    public Database()
+    public Database(StockFinder stock)
     {
         access = new MySQLAccess();
+        finder = stock;
     }
     
     public JSONObject buy(String symbol, int quantity, String username) throws SQLException
@@ -36,7 +36,8 @@ public class Database
         int id = set.getInt( 1 );
         
         //temp empty price
-        int price = 10;
+        HashMap<String, Double> prices = finder.find( symbol );
+        double price = prices.get( symbol );
         
         //check if they have money
         if(set.getDouble( 2 ) < price*quantity)
@@ -86,7 +87,8 @@ public class Database
         int id = set.getInt( 1 );
         
         //temp empty price
-        int price = 10;
+        HashMap<String, Double> prices = finder.find( symbol );
+        double price = prices.get( symbol );
         
         //make sure they have enough to sell
         set = access.execute( "select volume from stockinfo where symbol = '" + symbol + "' and userid = " + id );
@@ -150,10 +152,23 @@ public class Database
                 o.put( "volume", set.getInt( 2 ) );
                 o.put( "costbasis", set.getDouble( 3 ) );
                 o.put( "realizedgain", set.getDouble( 4 ) );
-                int price = 10;
-                o.put( "price", price );
                 arr.add( o );
             }
+        }
+        
+        String[] symbols = new String[arr.size()];
+        for(int i = 0; i < arr.size(); i++)
+        {
+            JSONObject o = (JSONObject)arr.get( 0 );
+            symbols[i] = (String)o.get( "symbol" );
+        }
+        
+        HashMap<String, Double> map = finder.find( symbols );
+        
+        for(int i = 0; i < arr.size(); i++)
+        {
+            JSONObject o = (JSONObject)arr.get( 0 );
+            o.put( "price", (Double)map.get( (String)o.get( "symbol" ) ) );
         }
         
         obj.put( "stockinfo", arr );
@@ -162,16 +177,6 @@ public class Database
         obj.put( "message", "task complete");
             
         return obj;
-    }
-    
-    public JSONObject getStockPrice()
-    {
-        /*
-         * StockStatus (In: [Stock symbol, quantity], Out: [Stock symbol, price])
-         * JSON: In: { "info" : [ "SYMBOL" , 10 ] }, Out: { "info" : [ “SYMBOL" , 0.01 ] }
-         */
-        return null;
-        
     }
     
     public ResultSet run(String query)

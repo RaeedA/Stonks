@@ -26,9 +26,11 @@ public class StonksApplication
 {
     static CacheManager manager;
     static Cache cache;
+    static StockFinder finder;
     
     public static void main(String[] args)
     {
+        finder = new StockFinder();
         manager = CacheManagerBuilder.newCacheManagerBuilder().build(true);
         makeCache();
         SpringApplication.run(StonksApplication.class, args);
@@ -58,7 +60,7 @@ public class StonksApplication
     @GetMapping("/test")
     public String test()
     {
-        Database d = new Database();
+        Database d = new Database(finder);
         ResultSet set = d.run( "select * from userinfo where id = 1" );
         try
         {
@@ -99,7 +101,7 @@ public class StonksApplication
             obj.put("message", "not a valid number");
             return obj;
         }
-        Database d = new Database();
+        Database d = new Database(finder);
         try
         {
             obj = d.buy( symbol, quantity, username );
@@ -136,7 +138,7 @@ public class StonksApplication
             obj.put("message", "not a valid number");
             return obj;
         }
-        Database d = new Database();
+        Database d = new Database(finder);
         try
         {
             obj = d.sell( symbol, quantity, username );
@@ -161,7 +163,7 @@ public class StonksApplication
             obj.put( "message", "not enough information");
             return obj;
         }
-        Database d = new Database();
+        Database d = new Database(finder);
         try
         {
             obj = d.accstatus(username);

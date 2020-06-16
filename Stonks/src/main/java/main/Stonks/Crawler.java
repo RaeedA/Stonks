@@ -1,11 +1,7 @@
 package main.Stonks;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Stack;
-
+import java.util.List;
 import org.openqa.selenium.By;
-import org.openqa.selenium.NoSuchElementException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 
@@ -13,12 +9,16 @@ public class Crawler extends Thread
 {
     private boolean active = true;
     private boolean busy = false;
-    private ArrayList<String> symbols;
-    private HashMap<String,Double> results;
+    private String mySymbol;
+    private double myPrice;
     private WebDriver driver;
+    private ManageHub myHub;
     
     public Crawler(WebDriver drive)
     {
+        myHub = null;
+        mySymbol = "";
+        myPrice = 0.0;
         driver = drive;
     }
     
@@ -27,7 +27,7 @@ public class Crawler extends Thread
     {
         while(active)
         {
-            if(symbols.isEmpty())
+            if(myHub == null)
             {
                try
                {
@@ -40,51 +40,79 @@ public class Crawler extends Thread
             }
             else
             {
-                getInfo();
+                while(myHub.hasJobs())
+                {
+                    if (getJob())
+                    {
+                        doJob();
+                        returnJob();
+                    }
+                }
             }
         }
         driver.close();
         driver.quit();
     }
     
-    public void getInfo()
+    private void doJob()
     {
-        busy = true;
-        String current;
-        while(!symbols.isEmpty())
+        driver.get( "https://finance.yahoo.com/quote/" + mySymbol );
+        List<WebElement> elements = driver.findElements( By.xpath( "/html/body/div[1]/div/div/div[1]/div/div[2]/div/div/div[4]/div/div/div/div[3]/div/div/span[1]" ) );
+        if(elements.size() == 0)
         {
-            current = symbols.get( 0 );
-            symbols.remove( 0 );
-            driver.get( "https://finance.yahoo.com/quote/" + current );
-            try
-            {
-                WebElement element = driver.findElement( By.cssSelector( "Trsdu(0.3s).Fw(b)" ) );
-                results.put( current.toUpperCase(), Double.parseDouble( element.getText() ) );
-            }
-            catch(NoSuchElementException e)
-            {
-                continue;
-            }
+        }
+        else
+        {
+            myPrice = Double.parseDouble( elements.get( 0 ).getText());
         }
         busy = false;
     }
     
-    public boolean addJob(ArrayList<String> symbolList, HashMap<String,Double> resultMap)
+    //Gets a task from hub
+    public void giveTask(String symbol)
     {
-        if(busy)
+        mySymbol = symbol;
+    }
+    
+    //Returns job to hub and resets variables
+    private void returnJob()
+    {
+        myHub.recieveTask( mySymbol, myPrice );
+        mySymbol = null;
+        myPrice = 0.0;
+    }
+    
+    //Gets a job from hub
+    private boolean getJob()
+    {
+        busy = true;
+        boolean worked = myHub.assignTask(this);
+        if(worked)
         {
-            return false;
+            return worked;
         }
         else
         {
-            results = resultMap;
-            symbols = symbolList;
-            return true;
+            busy = false;
+            return worked;
         }
     }
     
+    //Closes this thread
     public void close()
     {
         active = false;
+    }
+    
+    //Deletes the hub
+    public void deleteHub()
+    {
+        myHub = null;
+    }
+    
+    //Adds new hub
+    public void assignHub(ManageHub hub)
+    {
+        myHub = hub;
     }
 }
